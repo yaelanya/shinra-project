@@ -51,7 +51,35 @@ def labeling(sentence_df: pd.DataFrame, train_dict: dict):
 
     return _sentence_df
 
-def get_noun_list(text: str, join=True):
+def is_noun1(hinshi: list):
+    if hinshi[0] in ['名詞', '接頭詞']:
+        return True
+    else:
+        return False
+
+def is_noun2(hinshi: list):
+    if (hinshi[0] == '名詞') and (hinshi[1] == '固有名詞') and (hinshi[2] != '一般'):
+        return False
+    elif (hinshi[0] == '名詞') and (hinshi[1] in ['代名詞', '非自立', '特殊']):
+        return False
+    elif hinshi[0] in ['名詞', '接頭詞']:
+        return True
+    else:
+        return False
+
+def is_noun3(hinshi, noun):
+    if not (hinshi[0] in ['名詞', '接頭詞']) and (len(noun) == 0):
+        return False
+    elif (hinshi[0] == '名詞') and (hinshi[1] == '固有名詞') and (hinshi[2] != '一般'):
+        return False
+    elif (hinshi[0] == '名詞') and (hinshi[1] in ['代名詞', '非自立', '特殊']):
+        return False
+    elif (hinshi[0] in ['名詞', '接頭詞']) or ((hinshi[0] == '助詞') and (hinshi[1] in ['連体化', '並立助詞', '副助詞'])):
+        return True
+    else:
+        return False
+
+def get_noun_list(text: str, join=True, condition=2):
     mecab_param = MeCab.Tagger("-Ochasen -d /usr/local/lib/mecab/dic/mecab-ipadic-neologd")
     mecab_param.parse("")
     node = mecab_param.parseToNode(text)
@@ -64,7 +92,13 @@ def get_noun_list(text: str, join=True):
             continue
 
         hinshi = node.feature.split(',')
-        if hinshi[0] in ['名詞', '接頭詞']:
+
+        if condition is 1: is_noun = is_noun1(hinshi)
+        elif condition is 2: is_noun = is_noun2(hinshi)
+        elif condition is 3: is_noun = is_noun3(hinshi, noun)
+        else: is_noun = False
+
+        if is_noun:
             if join:
                 noun.append(node.surface)
             else:
