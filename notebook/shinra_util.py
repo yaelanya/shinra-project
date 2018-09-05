@@ -35,6 +35,22 @@ def contains_patt(match_text: [str, list]):
         print("Unexpected type.")
         return ""
 
+def train2dict(train_data: list, attribute: str):
+    train_dict = {}
+    for entry in train_data:
+        if len(entry['Attributes'][attribute]) is 0: continue
+        train_dict[str(entry['WikipediaID'])] = flatten([text2sentence(item) for item in entry['Attributes'][attribute]])
+
+    return train_dict
+
+def labeling(sentence_df: pd.DataFrame, train_dict: dict):
+    _sentence_df = sentence_df.assign(label = False)
+    for _id, train_str in train_dict.items():
+        _sentence_df.loc[_sentence_df._id == str(_id), 'label'] = \
+            _sentence_df.loc[_sentence_df._id == str(_id)].sentence.str.contains(contains_patt(train_str))
+
+    return _sentence_df
+
 def get_noun_list(text: str, join=True):
     mecab_param = MeCab.Tagger("-Ochasen -d /usr/local/lib/mecab/dic/mecab-ipadic-neologd")
     mecab_param.parse("")
