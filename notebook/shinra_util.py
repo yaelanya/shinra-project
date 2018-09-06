@@ -3,6 +3,8 @@ import pandas as pd
 import re
 import json
 import MeCab
+import difflib
+import wikitextparser as wtp
 
 
 def read_jasonl(filename):
@@ -19,6 +21,80 @@ def clean_text(text: str):
     cleaned = re.sub(r'\s{2,}', ' ', cleaned)
     
     return cleaned
+
+def _sub(text, s):
+    for i in s:
+        if isinstance(i, str):
+            text = text.replace(i, '')
+        else:
+            text = text.replace(i.string, '')
+    
+    return text
+
+def _clean_source_text(parsed_source_text):
+    clean_text = _sub(parsed_source_text.contents, parsed_source_text.templates)
+    clean_text = _sub(clean_text, parsed_source_text.tags())
+    clean_text = _sub(clean_text, parsed_source_text.external_links)
+    clean_text = re.sub(r'\n|\t|\r', ' ', clean_text)
+    clean_text = re.sub(r'={2,}.*?={2,}', '', clean_text)
+    clean_text = re.sub(r'\[\[[^\]]+:.+?\]\]', '', clean_text)
+    clean_text = re.sub(r'\[\[[^\]]+?\||\]\]|\[\[', '', clean_text)
+    clean_text = re.sub(r'\'{2,}|\*+|#+', '', clean_text)
+    clean_text = re.sub(r'<[^>]*?>.*?<\/[^>]*?>', '', clean_text)
+    clean_text = re.sub(r'\{\{.*?\}\}|\{.*?\}', '', clean_text)
+    
+    return clean_text
+
+def _complement_subtitle(article_df: pd.DataFrame):
+    # サブカテゴリ名の無い部分のうち，先頭部分は　NO_SUBTITLE で埋める
+        if len(article_df.loc[article_df.heading != '']) is 0:
+            article_df.loc[article_df.heading == '', ['heading']] = 'NO_SUBTITLE'
+        else :
+            article_df.loc[0:article_df[article_df.heading != ''].index[0], ['heading']] = 'NO_SUBTITLE'
+        
+        # サブカテゴリ名が無い場合は，1つ前のサブカテゴリ名で補完する
+        while len(article_df.loc[article_df.heading == '']) > 0: 
+            article_df.loc[article_df.heading == '', ['heading']] = \
+                article_df.loc[article_df.loc[article_df.heading == '', ['heading']].index - 1, 'heading'].values[0]
+
+        return article_df
+
+def _search_subtitle(source_text: str):
+    m = re.search(r'==+\s*([^=]+)\s*==+', source_text)
+    if m:
+        heading = m.group(1)
+    else:
+        heading = ''
+
+    return heading
+
+def _get_subtitle_of_sentence(article_df: pd.DataFrame, source_text: str, heading: str):
+    df = article_df.copy()
+    for s in re.findall(r'.*?。', source_text):
+        m_sentence = difflib.get_close_matches(s.strip(), df.sentence.values, n=1)
+        if len(m_sentence) > 0 and len(heading) > 0:
+            # heading にサブタイトル名を追加
+            df.loc[df.sentence == m_sentence[0], ['heading']] += heading + ','
+    
+    return df
+
+def get_subtitle(sentence_df: pd.DataFrame, wiki_dump_data: list):
+    df = sentence_df.assign(heading = '')
+    new_train_df = pd.DataFrame()
+    for _id in df._id.unique():
+        article_df = df.loc[df._id == _id]
+        
+        row_article = [entry for entry in wiki_dump_data if entry['index']['_id'] == _id][0]
+        parsed = wtp.parse(row_article['source_text'])
+        for source in parsed.sections[1:]:
+            heading = _search_subtitle(source.string)
+            section_text = _clean_source_text(source)
+            article_df = _get_subtitle_of_sentence(article_df, section_text, heading)
+        
+        article_df = _complement_subtitle(article_df)
+        new_train_df = new_train_df.append(article_df)
+
+    return new_train_df
 
 def text2sentence(text: str):
     if re.search(r'。', text):
