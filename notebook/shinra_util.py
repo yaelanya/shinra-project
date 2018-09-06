@@ -62,7 +62,7 @@ def is_noun2(hinshi: list):
         return False
     elif (hinshi[0] == '名詞') and (hinshi[1] in ['代名詞', '非自立', '特殊']):
         return False
-    elif hinshi[0] in ['名詞', '接頭詞']:
+    elif hinshi[0] == '名詞' or (hinshi[0] == '接頭詞' and hinshi[1] == '名詞接続'):
         return True
     else:
         return False
@@ -113,3 +113,22 @@ def get_noun_list(text: str, join=True, condition=2):
         noun_list.append(''.join(noun))
 
     return noun_list
+
+def get_word_list(text: str, condition_func=None):
+    mecab_param = MeCab.Tagger("-Ochasen -d /usr/local/lib/mecab/dic/mecab-ipadic-neologd")
+    mecab_param.parse("")
+    node = mecab_param.parseToNode(text)
+    
+    words = []
+    while node:
+        if len(node.surface) == 0:
+            node = node.next
+            continue
+
+        hinshi = node.feature.split(',')
+        if condition_func(hinshi):
+            words.append(node.surface)
+                   
+        node = node.next
+    
+    return words
