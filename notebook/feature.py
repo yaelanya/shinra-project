@@ -12,16 +12,11 @@ def contains_clue_word(train_df: pd.DataFrame, clue_word: list):
 
     return feature_word_df
 
-def subtitle_cat(train_df: pd.DataFrame):
+def subtitle_cat(train_df: pd.DataFrame, clue_word: list):
     # サブタイトル名をもとにカテゴリ変数を作成する
-    train = train.assign(heading_cat = np.nan)
+    df = train_df.assign(heading_cat = np.nan)
+    df.loc[df.heading.str.contains(r'NO_SUBTITLE'), 'heading_cat'] = 0
+    df.loc[df.heading.str.contains(util.contains_patt(clue_word)), 'heading_cat'] = 1
+    df.loc[df.heading_cat.isna(), 'heading_cat'] = 2
 
-    cat1 = r'NO_SUBTITLE'
-    train.loc[train.heading.str.contains(cat1), 'heading_cat'] = 0
-
-    cat2 = r'|'.join(np.append(clue_word_entropy, ['用途', '効果', '目的']))
-    train.loc[train.heading.str.contains(cat2), 'heading_cat'] = 1
-
-    train.loc[train.heading_cat.isna(), 'heading_cat'] = 2
-
-    train.heading_cat = train.heading_cat.astype('category') 
+    return df.heading_cat.astype('category')
