@@ -114,16 +114,24 @@ def contains_patt(match_text: [str, list]):
 def train2dict(train_data: list, attribute: str):
     train_dict = {}
     for entry in train_data:
-        if len(entry['Attributes'][attribute]) is 0: continue
         train_dict[str(entry['WikipediaID'])] = flatten([text2sentence(item) for item in entry['Attributes'][attribute]])
 
     return train_dict
 
+def df2dict(result: pd.DataFrame, value_column: str):
+    return result.groupby('_id')[value_column].apply(lambda x: x.tolist()).to_dict()
+
+def extract_from_dict(train: dict, ids: list):
+    return dict([[_id, train[_id]] for _id in ids])
+
 def labeling(sentence_df: pd.DataFrame, train_dict: dict):
     _sentence_df = sentence_df.assign(label = False)
-    for _id, train_str in train_dict.items():
+    for _id, train_values in train_dict.items():
+        if len(train_values) is 0:
+            continue
+
         _sentence_df.loc[_sentence_df._id == str(_id), 'label'] = \
-            _sentence_df.loc[_sentence_df._id == str(_id)].sentence.str.contains(contains_patt(train_str))
+            _sentence_df.loc[_sentence_df._id == str(_id)].sentence.str.contains(contains_patt(train_values))
 
     return _sentence_df
 
@@ -248,3 +256,48 @@ def get_word_list(text: str, condition_func=None):
         node = node.next
     
     return words
+
+def _validate_precision(extraction: list, train: list):
+    if len(extraction) is 0:
+        return []
+    if len(train) is 0:
+        return [False] * len(extraction)
+
+    extraction_df = pd.DataFrame({"extraction": extraction})
+    precision_list = \
+        np.array(extraction_df.extraction.str.contains(contains_patt(train)).tolist()) \
+        + np.array(extraction_df.apply(lambda x: True if re.search(contains_patt(x.extraction), ','.join(train)) else False, axis=1).tolist())
+    
+    return precision_list.tolist()
+
+def _validate_recall(extraction: list, train: list):
+    if len(extraction) is 0:
+        return [False] * len(train)
+    if len(train) is 0:
+        return []
+
+    train_df = pd.DataFrame({"train": train})
+    recall_list = \
+        np.array(train_df.train.str.contains(contains_patt(extraction)).tolist()) \
+        + np.array(train_df.apply(lambda x: True if re.search(contains_patt(x.train), ','.join(extraction)) else False, axis=1).tolist())
+
+    return recall_list.tolist()
+
+def validation(extraction: dict, train: dict):
+    precision_list = []
+    recall_list = []
+    for train_id, train_values in train.items():
+        if extraction.get(train_id):
+            precision_list += _validate_precision(extraction[train_id], train_values)
+            recall_list += _validate_recall(extraction[train_id], train_values)
+        else:
+            recall_list += [False] * len(train_values)
+
+    precision_list = np.array(precision_list)
+    recall_list = np.array(recall_list)
+
+    precision = precision_list.sum() / precision_list.shape[0]
+    recall = recall_list.sum() / recall_list.shape[0]
+    f1 = 2 * precision * recall / (precision + recall)
+    
+    return {"precision": precision, "recall": recall, "f1": f1}
