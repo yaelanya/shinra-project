@@ -190,6 +190,46 @@ def get_noun_list(text: str, join=True, condition=2):
 
     return noun_list
 
+def is_oxidation_state_parts(surface):
+    return re.match(r'^\($|^[IV]{1,4}$|^\)$', surface)
+    
+def is_oxidation_state(word):
+    return re.match(r'^\([IV]{1,4}\)$', "".join(word))
+
+def get_compound_list(text: str):
+    mecab_param = MeCab.Tagger("-Ochasen -d /usr/local/lib/mecab/dic/mecab-ipadic-neologd")
+    mecab_param.parse("")
+    node = mecab_param.parseToNode(text)
+    
+    compound_list = []
+    compound = []
+    oxidation_state = []
+    while node:
+        if len(node.surface) == 0:
+            node = node.next
+            continue
+        
+        hinshi = node.feature.split(',')    
+        if is_oxidation_state_parts(node.surface):
+            oxidation_state.append(node.surface)
+        elif (len(oxidation_state) > 0) and is_oxidation_state(oxidation_state):            
+            compound.append(''.join(oxidation_state))
+            oxidation_state = []
+            
+        if is_noun2(hinshi):
+            compound.append(node.surface)
+        elif len(compound) > 0 and not is_oxidation_state_parts(node.surface):
+            compound_list.append(''.join(compound))
+            compound = []
+        
+        node = node.next
+    
+    if len(compound) > 0:
+        if is_oxidation_state(oxidation_state): compound += oxidation_state
+        compound_list.append(''.join(compound))
+
+    return compound_list
+
 def get_word_list(text: str, condition_func=None):
     mecab_param = MeCab.Tagger("-Ochasen -d /usr/local/lib/mecab/dic/mecab-ipadic-neologd")
     mecab_param.parse("")
