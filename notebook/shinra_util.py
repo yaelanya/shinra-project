@@ -119,7 +119,7 @@ def train2dict(train_data: list, attribute: str):
     return train_dict
 
 def df2dict(result: pd.DataFrame, value_column: str):
-    return result.groupby('_id')[value_column].apply(lambda x: x.tolist()).to_dict()
+    return result.groupby('_id')[value_column].apply(lambda x: list(set(x.tolist()))).to_dict()
 
 def extract_from_dict(train: dict, ids: list):
     return dict([[_id, train[_id]] for _id in ids])
@@ -163,11 +163,18 @@ def is_noun3(hinshi, noun):
     else:
         return False
 
+def _remove_tail_adv(noun, hinshi):
+    while hinshi.pop() != '名詞':
+        noun.pop()
+        if len(hinshi) == 0:
+            break
+
 def get_noun_list(text: str, join=True, condition=2):
     mecab_param = MeCab.Tagger("-Ochasen -d /usr/local/lib/mecab/dic/mecab-ipadic-neologd")
     mecab_param.parse("")
     node = mecab_param.parseToNode(text)
     
+    hinshi_list = []
     noun_list = []
     noun = []
     while node:
@@ -184,16 +191,20 @@ def get_noun_list(text: str, join=True, condition=2):
 
         if is_noun:
             if join:
+                hinshi_list.append(hinshi[0])
                 noun.append(node.surface)
             else:
                 noun_list.append(node.surface)
-        elif (len(noun) > 0) and join:            
+        elif (len(noun) > 0) and join:
+            _remove_tail_adv(noun, hinshi_list)            
             noun_list.append(''.join(noun))
             noun = []
+            hinshi_list = []
         
         node = node.next
     
     if (len(noun) > 0) and join:
+        _remove_tail_adv(noun, hinshi_list)  
         noun_list.append(''.join(noun))
 
     return noun_list
