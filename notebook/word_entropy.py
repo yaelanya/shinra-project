@@ -8,7 +8,7 @@ def word_proba(docs: [pd.Series, list], word: str):
     word_count = np.array([Counter(doc)[word] for doc in docs])
     return pd.Series(word_count / np.sum(word_count))
 
-def entropy(word_proba: np.float):
+def entropy(word_proba: pd.Series):
     return np.sum(np.nan_to_num(-word_proba * np.log2(word_proba)))
 
 def word_entropy(clue_word_df: pd.DataFrame, normalize=True):
