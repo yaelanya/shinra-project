@@ -16,7 +16,7 @@ def flatten(multi_list: list):
 
 def clean_text(text: str):
     cleaned = re.sub(r'\\[a-zA-Z0-9]+', '', text)
-    cleaned = re.sub(r'{.+}', '', cleaned)
+    cleaned = regex.sub(r'(?<rec>\{(?:[^{}]+|(?&rec))*\})', '', cleaned)
     cleaned = re.sub(r'\"', '', cleaned)
     cleaned = re.sub(r'\s{2,}', ' ', cleaned)
     
