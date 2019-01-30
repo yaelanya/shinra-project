@@ -20,6 +20,8 @@ def clean_text(text: str):
     cleaned = regex.sub(r'(?<rec>\{(?:[^{}]+|(?&rec))*\})', '', cleaned)
     cleaned = re.sub(r'\"', '', cleaned)
     cleaned = re.sub(r'\s{2,}', ' ', cleaned)
+    cleaned = re.sub(r'\s{2,}', ' ', cleaned)
+    cleaned = re.sub(r'(\^\s*[^\^]+)', ' ', cleaned)
     
     return cleaned
 
@@ -105,9 +107,9 @@ def text2sentence(text: str):
 
 def contains_patt(match_text: [str, list]):
     if isinstance(match_text, str):
-        return f"{match_text}".replace(r'(', r'\(').replace(r')', r'\)')
+        return re.escape(f"{match_text}")
     elif isinstance(match_text, list):
-        return "|".join(match_text).replace(r'(', r'\(').replace(r')', r'\)')
+        return "|".join([re.escape(t) for t in match_text])
     else:
         print("Unexpected type.")
         return ""
